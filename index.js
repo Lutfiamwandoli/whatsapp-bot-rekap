@@ -93,22 +93,28 @@ client.on('message_create', async message => {
     } else if (message.body === '!menu') {
         // Menampilkan daftar command yang tersedia
         const menu = `
-Daftar Command yang Tersedia:
-1. Ping - Tes bot
-2. !download - Mendownload file Excel rekap transaksi
-3. !saldo - Menampilkan saldo Admin saat ini
-4. !tambahSaldo [jumlah] - Menambahkan saldo admin
-5. !resetSaldo - Mereset saldo admin jadi 0
-6. !format - Memberikan template format transaksi
-7. !tagall - Men-tag seluruh anggota grup
-8. !tag [kategori] - Men-tag anggota yang terdaftar di kategori tertentu
-9. !daftar [kategori] - Mendaftar ke kategori tertentu
-10. !keluarKategori [kategori] - Keluar dari kategori tertentu
-11. !tambahKategori [kategori] - Menambahkan kategori baru
-12. !hapusKategori [kategori] - Menghapus kategori
-13. !listKategori - Menampilkan daftar kategori yang tersedia
-14. !pengumuman [pesan] - Mengirim pengumuman ke semua anggota grup
-15. !menu - Menampilkan menu ini
+        ╭─✦ *FITUR BOT WHATSAPP* ✦──╮  
+        │  
+        │ 🔹 *!ping* — 🔄 Cek respons bot  
+        │ 🔸 *!menu* — 📜 Tampilkan daftar perintah  
+        │ 🔹 *!download* — 📥 Download rekap transaksi (Excel)  
+        │ 🔸 *!saldo* — 💵 Cek saldo Admin  
+        │ 🔹 *!tambahSaldo [jumlah]* — ➕ Tambah saldo Admin  
+        │ 🔸 *!resetSaldo* — ♻️ Reset saldo Admin ke 0  
+        │ 🔹 *!format* — 📝 Format transaksi yang bisa dipakai  
+        │ 🔸 *!tagall* — 👥 Mention semua anggota grup  
+        │ 🔹 *!tag [kategori]* — 🎯 Mention anggota kategori tertentu  
+        │ 🔸 *!pengumuman [pesan]* — 📢 Kirim pengumuman ke semua anggota grup  
+        │ 🔹 *!daftar [kategori]* — 🏷️ Daftar ke kategori  
+        │ 🔸 *!keluarKategori [kategori]* — 🚪 Keluar dari kategori  
+        │ 🔹 *!tambahKategori [kategori]* — ➕ Tambah kategori baru  
+        │ 🔸 *!hapusKategori [kategori]* — ❌ Hapus kategori  
+        │ 🔹 *!listKategori* — 📋 Lihat daftar kategori yang tersedia  
+        │  
+        ╰──────────────────────╯  
+        ✨ *Gunakan perintah dengan bijak dan tetap enjoy! 🚀*  
+         
+        
         `;
         message.reply(menu);
     } else if (message.body === '!format') {
@@ -124,114 +130,95 @@ status: selesai
         `;
         message.reply(formatTemplate);
     } else if (message.body === '!tagall') {
-        // Tag seluruh anggota grup
         const chat = await message.getChat();
         if (chat.isGroup) {
-            let mentions = chat.participants.map(participant => participant.id._serialized);
+            let mentions = chat.participants.map(p => p.id._serialized);
             let tagMessage = mentions.map(id => `@${id.split('@')[0]}`).join(' ');
-
-            if (message.hasQuotedMsg) {
-                const quotedMessage = await message.getQuotedMessage();
-                await quotedMessage.reply(tagMessage, null, { mentions });
-            } else {
-                await chat.sendMessage(tagMessage, { mentions });
-            }
+    
+            await chat.sendMessage(tagMessage, { mentions });
         } else {
-            message.reply('Command ini cuma bisa dipake di grup bro.');
+            message.reply('Command ini cuma bisa dipakai di grup.');
         }
-    } else if (message.body.startsWith('!tag ')) {
-        // Tag anggota grup berdasarkan kategori
+    }
+    else if (message.body.startsWith('!tag ')) {
         const category = message.body.split(' ')[1];
         if (category && categories[category]) {
             const chat = await message.getChat();
             if (chat.isGroup) {
-                let mentions = categories[category].map(id => id); // Gunakan ID WhatsApp langsung
-                let tagMessage = `Yang bisa ${category} yuk ` + mentions.map(id => `@${id.split('@')[0]}`).join(' ');
-
-               if (message.hasQuotedMsg) {
-                    const quotedMessage = await message.getQuotedMessage();
-                    await quotedMessage.reply(tagMessage, null, { mentions });
-                } else {
-                    await chat.sendMessage(tagMessage, { mentions });
+                let mentions = categories[category].map(id => id); // Pastikan ID-nya valid
+                if (mentions.length === 0) {
+                    return message.reply(`Kategori ${category} masih kosong.`);
                 }
+    
+                let tagMessage = `📢 Yang bisa ${category}, yuk:\n` + mentions.map(id => `@${id.split('@')[0]}`).join(' ');
+    
+                await chat.sendMessage(tagMessage, { mentions });
             } else {
-                message.reply('Command ini cuma bisa dipake di grup.');
+                message.reply('Command ini hanya bisa digunakan di grup.');
             }
         } else {
-            message.reply(`Kategori ${category} ga ada bro.`);
+            message.reply(`Kategori ${category} tidak ditemukan.`);
         }
-    } else if (message.body.startsWith('!pengumuman ')) {
+    }
+    else if (message.body.startsWith('!pengumuman ')) {
         const chat = await message.getChat();
         if (chat.isGroup) {
-            const announcement = message.body.slice(12); // Mengambil pesan setelah '!pengumuman '
-            let mentions = chat.participants.map(participant => participant.id._serialized);
-            let tagMessage = `📢 Pengumuman: ${announcement}\n` + mentions.map(id => `@${id.split('@')[0]}`).join(' ');
-
-            // Mengirim pesan pengumuman dan mereply pesan yang dipicu oleh command
-            await chat.sendMessage(tagMessage, { 
-                mentions, 
-                quotedMessageId: message.id._serialized // Mereply pesan
-            });
+            const announcement = message.body.slice(12).trim(); // Mengambil pesan setelah '!pengumuman '
+            let mentions = chat.participants.map(p => p.id._serialized);
+    
+            if (mentions.length === 0) {
+                return message.reply('Tidak ada anggota yang bisa di-mention.');
+            }
+    
+            let tagMessage = `📢 *Pengumuman Penting!*\n\n${announcement}\n\n` +
+                mentions.map(id => `@${id.split('@')[0]}`).join(' ');
+    
+            await chat.sendMessage(tagMessage, { mentions });
         } else {
-            message.reply('Command ini cuma bisa dipake di grup bro.');
+            message.reply('Command ini hanya bisa digunakan di grup.');
         }
-    } else if (message.body.startsWith('!daftar ')) {
-        // Mendaftar ke kategori
+    }
+    else if (message.body.startsWith('!daftar ')) {
         const category = message.body.split(' ')[1];
         if (category) {
             const chat = await message.getChat();
             if (chat.isGroup) {
-                const contactId = chat.participants.find(participant => participant.id._serialized === message.author).id._serialized;
-
+                const contactId = message.author;
                 if (!categories[category]) {
                     categories[category] = [];
                 }
-
                 if (!categories[category].includes(contactId)) {
                     categories[category].push(contactId);
-                    db.run(`INSERT INTO category_members (category, contactId) VALUES (?, ?)`, [category, contactId], (err) => {
-                        if (err) {
-                            message.reply('Gagal mendaftar ke kategori.');
-                        } else {
-                            message.reply(`Kamu udah terdaftar di kategori ${category}.`);
-                        }
-                    });
+                    db.run(`INSERT INTO category_members (category, contactId) VALUES (?, ?)`, [category, contactId]);
+                    message.reply(`Kamu udah terdaftar di kategori ${category}.`);
                 } else {
-                    message.reply('Kamu udah daftar dikategori ini, daftar di kategori lain bro!');
+                    message.reply('Kamu sudah daftar di kategori ini.');
                 }
             } else {
-                message.reply('Command ini cuma bisa dipake di grup.');
+                message.reply('Command ini hanya bisa dipakai di grup.');
             }
         } else {
-            message.reply('Sebutkan kategori yang pengen kamu daftar.');
+            message.reply('Sebutkan kategori yang ingin kamu daftar.');
         }
-    } else if (message.body.startsWith('!keluarKategori ')) {
-        // Keluar dari kategori
+    }
+
+    else if (message.body.startsWith('!keluarKategori ')) {
         const category = message.body.split(' ')[1];
         if (category && categories[category]) {
             const chat = await message.getChat();
             if (chat.isGroup) {
-                const contactId = chat.participants.find(participant => participant.id._serialized === message.author).id._serialized;
-
-                if (categories[category].includes(contactId)) {
-                    categories[category] = categories[category].filter(id => id !== contactId);
-                    db.run(`DELETE FROM category_members WHERE category = ? AND contactId = ?`, [category, contactId], (err) => {
-                        if (err) {
-                            message.reply('Gagal keluar dari kategori.');
-                        } else {
-                            message.reply(`Kamu udah keluar dari kategori ${category}.`);
-                        }
-                    });
-                } else {
-                    message.reply('Kamu belum daftar di kategori ini.');
-                }
+                const contactId = message.author;
+                categories[category] = categories[category].filter(id => id !== contactId);
+                db.run(`DELETE FROM category_members WHERE category = ? AND contactId = ?`, [category, contactId]);
+                message.reply(`Kamu udah keluar dari kategori ${category}.`);
             } else {
                 message.reply('Command ini cuma bisa dipake di grup.');
             }
         } else {
-            message.reply(`Kategori ${category} ga ada bro.`);
+            message.reply(`Kategori ${category} tidak ditemukan.`);
         }
-    } else if (message.body.startsWith('!tambahKategori ')) {
+    }
+ else if (message.body.startsWith('!tambahKategori ')) {
         // Menambahkan kategori baru
         const category = message.body.split(' ')[1];
         if (category) {
