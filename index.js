@@ -3,7 +3,7 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const xlsx = require('xlsx');
 const db = require('./database'); // Import database
-
+const sharp = require('sharp'); // Untuk membuat sticker
 // Menggunakan LocalAuth untuk menyimpan sesi secara otomatis
 const client = new Client({
     authStrategy: new LocalAuth({
@@ -13,6 +13,7 @@ const client = new Client({
 
 let saldoAdmin = 0; // Inisialisasi saldo admin
 let categories = {}; // Menyimpan kategori dan anggota yang terdaftar
+let giveawayKeyword = "";
 
 client.on('ready', async () => {
     console.log('Client sudah siap!');
@@ -71,7 +72,7 @@ client.on('message_create', async message => {
         // Kirim file Excel jika ada file yang sudah dibuat
         if (fs.existsSync('rekap_transaksi.xlsx')) {
             const media = MessageMedia.fromFilePath('rekap_transaksi.xlsx');
-            await client.sendMessage(message.from, media, { caption: 'Nih file yang kamu minta bro!' });
+            await client.sendMessage(message.from, media, { caption: 'Nih filenya' });
         } else {
             message.reply('Belum ada file rekap transaksi bro.');
         }
@@ -93,26 +94,23 @@ client.on('message_create', async message => {
     } else if (message.body === '!menu') {
         // Menampilkan daftar command yang tersedia
         const menu = `
-        ╭─✦ *FITUR BOT WHATSAPP* ✦──╮  
+        ╭─✦ *FITUR BOT* ✦──╮  
         │  
-        │ 🔹 *!ping* — 🔄 Cek respons bot  
-        │ 🔸 *!menu* — 📜 Tampilkan daftar perintah  
-        │ 🔹 *!download* — 📥 Download rekap transaksi (Excel)  
-        │ 🔸 *!saldo* — 💵 Cek saldo Admin  
-        │ 🔹 *!tambahSaldo [jumlah]* — ➕ Tambah saldo Admin  
-        │ 🔸 *!resetSaldo* — ♻️ Reset saldo Admin ke 0  
-        │ 🔹 *!format* — 📝 Format transaksi yang bisa dipakai  
-        │ 🔸 *!tagall* — 👥 Mention semua anggota grup  
-        │ 🔹 *!tag [kategori]* — 🎯 Mention anggota kategori tertentu  
-        │ 🔸 *!pengumuman [pesan]* — 📢 Kirim pengumuman ke semua anggota grup  
-        │ 🔹 *!daftar [kategori]* — 🏷️ Daftar ke kategori  
-        │ 🔸 *!keluarKategori [kategori]* — 🚪 Keluar dari kategori  
-        │ 🔹 *!tambahKategori [kategori]* — ➕ Tambah kategori baru  
-        │ 🔸 *!hapusKategori [kategori]* — ❌ Hapus kategori  
-        │ 🔹 *!listKategori* — 📋 Lihat daftar kategori yang tersedia  
+        │ 🔹 *!ping*  
+        │ 🔸 *!menu*   
+        │ 🔹 *!download*   
+        │ 🔹 *!format*    
+        │ 🔸 *!tagall*    
+        │ 🔹 *!tag [kategori]*   
+        │ 🔸 *!pengumuman [pesan]*   
+        │ 🔹 *!daftar [kategori]*   
+        │ 🔸 *!keluarKategori [kategori]*   
+        │ 🔹 *!tambah [kategori]*   
+        │ 🔸 *!hapus [kategori]* 
+        │ 🔹 *!list*  
         │  
-        ╰──────────────────────╯  
-        ✨ *Gunakan perintah dengan bijak dan tetap enjoy! 🚀*  
+        ╰───────────╯  
+         Jangan mainin tagnya ya bjir!
          
         
         `;
@@ -120,94 +118,175 @@ client.on('message_create', async message => {
     } else if (message.body === '!format') {
         // Menampilkan template format yang bisa dideteksi oleh bot
         const formatTemplate = `
+Formatnya dipake pas udah selesai aja ya
+kalo format proses gapapa pake tag dulu
 Gunakan format berikut untuk memasukkan data transaksi:
 
-Job: [Nama Pekerjaan]
-Hunter: [Nama Hunter]
-Worker: [Nama Worker]
-Fee: [Total Fee]
+Job: [Nama Job]
+Hunter: [Nama Hunter note: nama aja jgn tag]
+Worker: [Nama Worker note: nama aja jgn tag]
+Fee: [Total Fee] jangan pakai titik ex : 25000
 status: selesai
+
+note, tag ka bio nya jangan barengan sama format ya
         `;
         message.reply(formatTemplate);
     } else if (message.body === '!tagall') {
         const chat = await message.getChat();
         if (chat.isGroup) {
-            let mentions = chat.participants.map(p => p.id._serialized);
-            let tagMessage = mentions.map(id => `@${id.split('@')[0]}`).join(' ');
+            let mentions = chat.participants.map(id => `${id}`);
+            let tagMessage =`🎯 *Tag kategori:\n` + mentions.map(id => `@${id.split('@')[0]}`).join(' ');;
     
             await chat.sendMessage(tagMessage, { mentions });
         } else {
-            message.reply('Command ini cuma bisa dipakai di grup.');
+            message.reply('Masih dalam tahap pengembangan, belum bisa ya.');
         }
     }
     else if (message.body.startsWith('!tag ')) {
+        let chat = await message.getChat();
         const category = message.body.split(' ')[1];
-        if (category && categories[category]) {
-            const chat = await message.getChat();
-            if (chat.isGroup) {
-                let mentions = categories[category].map(id => id); // Pastikan ID-nya valid
-                if (mentions.length === 0) {
-                    return message.reply(`Kategori ${category} masih kosong.`);
-                }
-    
-                let tagMessage = `📢 Yang bisa ${category}, yuk:\n` + mentions.map(id => `@${id.split('@')[0]}`).join(' ');
-    
-                await chat.sendMessage(tagMessage, { mentions });
-            } else {
-                message.reply('Command ini hanya bisa digunakan di grup.');
-            }
-        } else {
-            message.reply(`Kategori ${category} tidak ditemukan.`);
+
+        if (!category || !categories[category]) {
+            return message.reply(`Kategori *${category}* ngga ada.`);
+        }
+
+        let mentions = categories[category].map(id => `${id}`);
+        if (mentions.length === 0) return message.reply(`Tidak ada anggota yang terdaftar di kategori *${category}*.`);
+
+        let tagMessage = `Yuk yang bisa ${category}*\n` + mentions.map(id => `@${id.split('@')[0]}`).join(' ');
+
+        await chat.sendMessage(tagMessage, { mentions });
+    }
+    else if (message.hasMedia) {
+        const media = await message.downloadMedia();
+        if (message.body === '!sticker') {
+            const inputPath = `./temp/${message.id.id}.jpg`;
+            const outputPath = `./temp/${message.id.id}.webp`;
+            
+            fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
+            await sharp(inputPath)
+                .resize({ width: 512, height: 512, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                .toFormat('webp')
+                .toFile(outputPath);
+            
+            const stickerMedia = MessageMedia.fromFilePath(outputPath);
+            await client.sendMessage(message.from, stickerMedia, { sendMediaAsSticker: true });
+            
+            fs.unlinkSync(inputPath);
+            fs.unlinkSync(outputPath);
         }
     }
-    else if (message.body.startsWith('!pengumuman ')) {
-        const chat = await message.getChat();
-        if (chat.isGroup) {
-            const announcement = message.body.slice(12).trim(); // Mengambil pesan setelah '!pengumuman '
-            let mentions = chat.participants.map(p => p.id._serialized);
-    
-            if (mentions.length === 0) {
-                return message.reply('Tidak ada anggota yang bisa di-mention.');
-            }
-    
-            let tagMessage = `📢 *Pengumuman Penting!*\n\n${announcement}\n\n` +
-                mentions.map(id => `@${id.split('@')[0]}`).join(' ');
-    
-            await chat.sendMessage(tagMessage, { mentions });
-        } else {
-            message.reply('Command ini hanya bisa digunakan di grup.');
+    else if (message.body.startsWith('!mulaiGiveaway ')) {
+        let chat = await message.getChat();
+        if (!chat.isGroup) return message.reply('Fitur ini hanya bisa digunakan dalam grup.');
+
+        const args = message.body.split(' ');
+        if (args.length < 3) return message.reply('Gunakan format: !mulaiGiveaway [jumlah pemenang] [kata kunci]');
+        
+        let numWinners = parseInt(args[1]);
+        if (isNaN(numWinners) || numWinners < 1) return message.reply('Jumlah pemenang harus berupa angka positif.');
+        
+        giveawayKeyword = args.slice(2).join(' ');
+        giveawayParticipants[chat.id._serialized] = { participants: [], numWinners };
+
+        message.reply(`🎉 Giveaway dimulai! 🎉
+Ketik: *${giveawayKeyword}* untuk ikut serta!`);
+    }
+
+    // Mendaftarkan Peserta Giveaway
+    if (giveawayKeyword && message.body === giveawayKeyword) {
+        let chat = await message.getChat();
+        if (!chat.isGroup) return;
+
+        let groupId = chat.id._serialized;
+        if (!giveawayParticipants[groupId]) return;
+
+        let userId = message.author || message.from;
+        if (!giveawayParticipants[groupId].participants.includes(userId)) {
+            giveawayParticipants[groupId].participants.push(userId);
+            ;
+        } 
+    }
+
+    // Memilih Pemenang Giveaway
+    if (message.body.startsWith('!pilih')) {
+        let chat = await message.getChat();
+        if (!chat.isGroup) return message.reply('Fitur ini hanya bisa digunakan dalam grup.');
+
+        let groupId = chat.id._serialized;
+        if (!giveawayParticipants[groupId] || giveawayParticipants[groupId].participants.length === 0) {
+            return message.reply('Tidak ada peserta yang terdaftar dalam giveaway.');
         }
+
+        let { participants, numWinners } = giveawayParticipants[groupId];
+        if (participants.length < numWinners) numWinners = participants.length;
+
+        let winners = [];
+        for (let i = 0; i < numWinners; i++) {
+            let winnerIndex = Math.floor(Math.random() * participants.length);
+            winners.push(participants[winnerIndex]);
+            participants.splice(winnerIndex, 1);
+        }
+
+        let winnerMentions = winners.map(id => `@${id.split('@')[0]}`).join(' ');
+        message.reply(`🎉 Selamat kepada ${winnerMentions} yang memenangkan giveaway! 🎉`, { mentions: winners });
+
+        // Reset giveaway
+        delete giveawayParticipants[groupId];
+        giveawayKeyword = "";
+    }
+
+    else if (message.body.startsWith('!pengumuman ')) {
+        let chat = await message.getChat();
+    
+        // Pastikan perintah hanya bisa digunakan dalam grup
+        if (!chat.isGroup) {
+            return message.reply('Masih tahap pengembangan');
+        }
+    
+        // Pastikan daftar peserta grup tersedia
+        if (!chat.participants) {
+            return message.reply('Gagal mendapatkan daftar anggota grup.');
+        }
+    
+        const announcement = message.body.slice(12).trim(); // Ambil pesan setelah '!pengumuman ' dan hapus spasi ekstra
+        let mentions = chat.participants.map(p => p.id._serialized);
+    
+        if (mentions.length === 0) {
+            return message.reply('Tidak ada anggota yang bisa di-mention.');
+        }
+    
+        // Buat pesan pengumuman dengan mention
+        let pengumumanMessage = `📢 *Pengumuman Penting!*\n\n${announcement}\n\n` + 
+            mentions.map(id => `@${id.split('@')[0]}`).join(' ');
+    
+        // Kirim pengumuman dengan mention ke semua anggota grup
+        await chat.sendMessage(pengumumanMessage, { mentions });
+    
+        message.reply('Pengumuman berhasil dikirim ke semua anggota grup.');
     }
     else if (message.body.startsWith('!daftar ')) {
         const category = message.body.split(' ')[1];
         if (category) {
-            const chat = await message.getChat();
-            if (chat.isGroup) {
-                const contactId = message.author;
-                if (!categories[category]) {
-                    categories[category] = [];
-                }
-                if (!categories[category].includes(contactId)) {
-                    categories[category].push(contactId);
-                    db.run(`INSERT INTO category_members (category, contactId) VALUES (?, ?)`, [category, contactId]);
-                    message.reply(`Kamu udah terdaftar di kategori ${category}.`);
-                } else {
-                    message.reply('Kamu sudah daftar di kategori ini.');
-                }
-            } else {
-                message.reply('Command ini hanya bisa dipakai di grup.');
-            }
-        } else {
-            message.reply('Sebutkan kategori yang ingin kamu daftar.');
-        }
-    }
+            let chat = await message.getChat();
+            let contactId = message.author;
 
+            if (!categories[category]) categories[category] = [];
+            if (!categories[category].includes(contactId)) {
+                categories[category].push(contactId);
+                db.run(`INSERT INTO category_members (category, contactId) VALUES (?, ?)`, [category, contactId]);
+                message.reply(`Kamu berhasil daftar di spess *${category}*.`);
+            } else {
+                message.reply('udah daftar dispess ni masa lupa sih.');
+            }
+        }
+    
     else if (message.body.startsWith('!keluarKategori ')) {
         const category = message.body.split(' ')[1];
-        if (category && categories[category]) {
-            const chat = await message.getChat();
-            if (chat.isGroup) {
-                const contactId = message.author;
+        if (category) {
+            let chat = await message.getChat();
+            let contactId = message.author;
+
                 categories[category] = categories[category].filter(id => id !== contactId);
                 db.run(`DELETE FROM category_members WHERE category = ? AND contactId = ?`, [category, contactId]);
                 message.reply(`Kamu udah keluar dari kategori ${category}.`);
@@ -218,7 +297,7 @@ status: selesai
             message.reply(`Kategori ${category} tidak ditemukan.`);
         }
     }
- else if (message.body.startsWith('!tambahKategori ')) {
+ else if (message.body.startsWith('!tambah ')) {
         // Menambahkan kategori baru
         const category = message.body.split(' ')[1];
         if (category) {
@@ -237,7 +316,7 @@ status: selesai
         } else {
             message.reply('Sebutkan nama kategori yang pengen ditambahkan.');
         }
-    } else if (message.body.startsWith('!hapusKategori ')) {
+    } else if (message.body.startsWith('!hapus ')) {
         // Menghapus kategori
         const category = message.body.split(' ')[1];
         if (category && categories[category]) {
@@ -252,7 +331,7 @@ status: selesai
         } else {
             message.reply(`Kategori ${category} ga ada.`);
         }
-    } else if (message.body === '!listKategori') {
+    } else if (message.body === '!list') {
         // Menampilkan daftar kategori
         const list = Object.keys(categories).length > 0 ? Object.keys(categories).join(', ') : 'Belum ada kategori.';
         message.reply(`Daftar kategori: ${list}`);
