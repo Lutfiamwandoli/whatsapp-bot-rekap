@@ -3,7 +3,6 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const xlsx = require('xlsx');
 const db = require('./database'); // Import database
-const categories = {};
 const sharp = require('sharp'); // Untuk membuat sticker
 // Menggunakan LocalAuth untuk menyimpan sesi secara otomatis
 const client = new Client({
