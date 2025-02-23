@@ -118,9 +118,6 @@ client.on('message_create', async message => {
     } else if (message.body === '!format') {
         // Menampilkan template format yang bisa dideteksi oleh bot
         const formatTemplate = `
-Formatnya dipake pas udah selesai aja ya
-kalo format proses gapapa pake tag dulu
-Gunakan format berikut untuk memasukkan data transaksi:
 
 Job: [Nama Job]
 Hunter: [Nama Hunter note: nama aja jgn tag]
@@ -128,7 +125,6 @@ Worker: [Nama Worker note: nama aja jgn tag]
 Fee: [Total Fee] jangan pakai titik ex : 25000
 status: selesai
 
-note, tag ka bio nya jangan barengan sama format ya
         `;
         message.reply(formatTemplate);
     } else if (message.body === '!tagall') {
@@ -332,9 +328,15 @@ Ketik: *${giveawayKeyword}* untuk ikut serta!`);
             message.reply(`Kategori ${category} ga ada.`);
         }
     } else if (message.body === '!list') {
-        // Menampilkan daftar kategori
-        const list = Object.keys(categories).length > 0 ? Object.keys(categories).join(', ') : 'Belum ada kategori.';
-        message.reply(`Daftar kategori: ${list}`  );
+        // Menampilkan daftar kategori dalam format list
+        const list = Object.keys(categories);
+        
+        if (list.length > 0) {
+            const formattedList = list.map(cat => `- ${cat}`).join('\n');
+            message.reply(`*Daftar Kategori:*\n${formattedList}`);
+        } else {
+            message.reply('Belum ada kategori.');
+        }
     }
 });
 
