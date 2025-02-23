@@ -268,6 +268,9 @@ Ketik: *${giveawayKeyword}* untuk ikut serta!`);
     else if (message.body.startsWith('!daftar ')) {
         const category = message.body.split(' ')[1];
         if (category) {
+            if (!categories[category]) {
+            return message.reply(`Kategori ${category} tidak ditemukan. Silakan cek daftar kategori dengan !list.`);
+        }
             let chat = await message.getChat();
             let contactId = message.author;
 
@@ -332,9 +335,18 @@ Ketik: *${giveawayKeyword}* untuk ikut serta!`);
             message.reply(`Kategori ${category} ga ada.`);
         }
     } else if (message.body === '!list') {
-        // Menampilkan daftar kategori
-        const list = Object.keys(categories).length > 0 ? Object.keys(categories).join(', ') : 'Belum ada kategori.';
-        message.reply(`Daftar kategori: ${list}`);
+    // Menampilkan daftar kategori
+    const categoriesList = Object.keys(categories);
+
+    if (categoriesList.length > 0) {
+        // Mengubah daftar kategori menjadi format list
+        let listMessage = 'Daftar kategori:\n';
+        categoriesList.forEach((category, index) => {
+            listMessage += `${index + 1}. ${category}\n`;
+        });
+        message.reply(listMessage);
+    } else {
+        message.reply('Belum ada kategori.');
     }
 });
 
