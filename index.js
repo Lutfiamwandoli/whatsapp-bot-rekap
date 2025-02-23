@@ -334,7 +334,7 @@ Ketik: *${giveawayKeyword}* untuk ikut serta!`);
     } else if (message.body === '!list') {
         // Menampilkan daftar kategori
         const list = Object.keys(categories).length > 0 ? Object.keys(categories).join(', ') : 'Belum ada kategori.';
-        message.reply('Daftar kategori: ${list}');
+        message.reply('Daftar kategori: /n' ${list});
     }
 });
 
