@@ -4,6 +4,7 @@ const fs = require('fs');
 const xlsx = require('xlsx');
 const db = require('./database'); // Import database
 const sharp = require('sharp'); // Untuk membuat sticker
+const path = require('path');
 // Menggunakan LocalAuth untuk menyimpan sesi secara otomatis
 const client = new Client({
     authStrategy: new LocalAuth({
@@ -36,6 +37,10 @@ client.on('message_create', async message => {
     if (message.body === 'Ping') {
         message.reply('Tes Bot aja bro!');
     }
+    const tempDir = path.join(__dirname, 'temp');
+if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+}
 
     // Format Job untuk rekap uang masuk
     const jobRegex = /Job:\s*(.*)\nHunter:\s*(.*)\nWorker:\s*(.*)\nFee:\s*(\d+)\nstatus:\s*selesai/i;
@@ -154,24 +159,41 @@ status: selesai
         await chat.sendMessage(tagMessage, { mentions });
     }
     else if (message.hasMedia) {
+    try {
         const media = await message.downloadMedia();
+
         if (message.body === '!sticker') {
-            const inputPath = `./temp/${message.id.id}.jpg`;
-            const outputPath = `./temp/${message.id.id}.webp`;
-            
+            // Buat path file input dan output
+            const inputPath = path.join(tempDir, `${message.id.id}.jpg`);
+            const outputPath = path.join(tempDir, `${message.id.id}.webp`);
+
+            // Simpan media ke file sementara
             fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
+
+            // Proses gambar menjadi stiker dengan sharp
             await sharp(inputPath)
-                .resize({ width: 512, height: 512, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                .resize({
+                    width: 512,
+                    height: 512,
+                    fit: 'contain',
+                    background: { r: 0, g: 0, b: 0, alpha: 0 }
+                })
                 .toFormat('webp')
                 .toFile(outputPath);
-            
+
+            // Kirim hasil stiker ke pengguna
             const stickerMedia = MessageMedia.fromFilePath(outputPath);
             await client.sendMessage(message.from, stickerMedia, { sendMediaAsSticker: true });
-            
+
+            // Hapus file sementara setelah stiker dikirim
             fs.unlinkSync(inputPath);
             fs.unlinkSync(outputPath);
         }
+    } catch (error) {
+        console.error('Error saat memproses stiker:', error);
+        message.reply('Terjadi kesalahan saat membuat stiker. Pastikan gambar yang dikirim valid.');
     }
+}
     else if (message.body.startsWith('!mulaiGiveaway ')) {
         let chat = await message.getChat();
         if (!chat.isGroup) return message.reply('Fitur ini hanya bisa digunakan dalam grup.');
