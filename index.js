@@ -3,6 +3,7 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const xlsx = require('xlsx');
 const db = require('./database'); // Import database
+const categories = {};
 const sharp = require('sharp'); // Untuk membuat sticker
 // Menggunakan LocalAuth untuk menyimpan sesi secara otomatis
 const client = new Client({
@@ -267,7 +268,7 @@ Ketik: *${giveawayKeyword}* untuk ikut serta!`);
     }
     else if (message.body.startsWith('!daftar ')) {
         const category = message.body.split(' ')[1];
-        if (category) {
+        if (category && categories[category]) {
             let chat = await message.getChat();
             let contactId = message.author;
 
